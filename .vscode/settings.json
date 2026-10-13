@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd 'd:\\\\Users\\\\vlr20\\\\Projects\\\\GitHub\\\\Experiments\\\\dem-to-untrim' \\| Out-Null; \\.\\\\compile\\.bat 2>&1 \\| head -100$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

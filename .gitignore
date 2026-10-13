@@ -1,0 +1,4 @@
+build/
+*.asc
+*.tif
+*.grd
