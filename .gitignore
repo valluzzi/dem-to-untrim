@@ -3,3 +3,4 @@ build/
 *.tif
 *.grd
 *.prj
+*.exe
