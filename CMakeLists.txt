@@ -55,3 +55,23 @@ add_test(NAME test_numpy
     COMMAND test_numpy
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+
+add_executable(test_label tests/test_label.f90 src/module_label.f90)
+set_target_properties(test_label PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME test_label
+    COMMAND test_label
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_executable(test_print tests/test_print.f90 src/module_print.f90)
+set_target_properties(test_print PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME test_print
+    COMMAND test_print
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
