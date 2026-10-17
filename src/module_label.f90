@@ -15,7 +15,7 @@ contains
       integer(8), allocatable :: stack(:)
       integer(8) :: top, p, m8
       integer :: m, n, i, j, ci, cj, ni, nj, k, label_id
-      integer, parameter :: di(4) = [-1, 1, 0, 0], dj(4) = [0, 0, -1, 1]
+      integer, parameter :: di(8) = [-1, 1, 0, 0, -1, -1, 1, 1], dj(8) = [0, 0, -1, 1, -1, 1, -1, 1]
 
       m = size(mask, 1)
       n = size(mask, 2)
@@ -38,7 +38,7 @@ contains
                ci = int(mod(p - 1, m8)) + 1
                cj = int((p - 1) / m8) + 1
 
-               do k = 1, 4
+               do k = 1, 8
                   ni = ci + di(k)
                   nj = cj + dj(k)
                   if (ni < 1 .or. ni > m .or. nj < 1 .or. nj > n) cycle

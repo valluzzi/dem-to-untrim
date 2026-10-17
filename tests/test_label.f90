@@ -1,60 +1,71 @@
 program test_label
    use label
+   use module_asc
    use module_print
    implicit none
-   integer, parameter :: n = 10
-   integer :: i, j, nfail
-   integer(4) :: ai(n,n), expected(n,n)
-   logical(4) :: mask(n,n)
-   real(8) :: ar(n,n)
-   integer(4), allocatable :: lab(:,:)
+   character(len=*), parameter :: fname = 'tests/labels.asc'
+   integer, allocatable :: mi(:,:), lab(:,:), flat(:), parent(:)
+   logical, allocatable :: seen(:)
+   integer :: m, n, nc, i, k, ncomp, nlab, nfail, st
 
    nfail = 0
 
-   ! vertical stripes: odd columns are foreground, each is its own component
-   do j = 1, n
-      mask(:,j) = mod(j, 2) == 1
-   end do
-   ai = merge(1, 0, mask)
-   ar = real(ai, 8)
-   expected = 0
-   do j = 1, n, 2
-      expected(:,j) = (j + 1) / 2
-   end do
+   st = readAsc(fname, mi)
+   if (st /= 0) then
+      print *, 'FAIL: readAsc status ', st
+      error stop 1
+   end if
+   m = size(mi, 1)
+   n = size(mi, 2)
+   call expect('shape 1024x1024', m == 1024 .and. n == 1024, nfail)
 
-   lab = labeling(mask)
-   call expect('logical4 stripes', all(lab == expected), nfail)
-
-   lab = labeling(ai)
-   call expect('int4 stripes', all(lab == expected), nfail)
-
-   lab = labeling(ar)
-   call expect('real8 stripes', all(lab == expected), nfail)
-   print '(a)', 'stripes labeled:'
+   lab = labeling(mi)
+   print '(a)', 'labeled matrix:'
    call print(lab)
+   call expect('background stays zero', all((lab /= 0) .eqv. (mi /= 0)), nfail)
+   call expect('horizontal neighbours share label', &
+        all(lab(1:m-1,:) == lab(2:m,:) .or. mi(1:m-1,:) == 0 .or. mi(2:m,:) == 0), nfail)
+   call expect('vertical neighbours share label', &
+        all(lab(:,1:n-1) == lab(:,2:n) .or. mi(:,1:n-1) == 0 .or. mi(:,2:n) == 0), nfail)
 
-   ! checkerboard: no two foreground cells are 4-adjacent
-   do j = 1, n
-      do i = 1, n
-         ai(i,j) = merge(1, 0, mod(i + j, 2) == 0)
-      end do
+   ! reference component count from an independent union-find on the same mask
+   nc = m*n
+   allocate(flat(nc), parent(nc))
+   flat = reshape(mi, [nc])
+   parent = [(k, k = 1, nc)]
+   do k = 1, nc
+      if (flat(k) == 0) cycle
+      i = mod(k - 1, m) + 1
+      if (i < m) then
+         if (flat(k + 1) /= 0) call unite(parent, k, k + 1)
+      end if
+      if (k + m <= nc) then
+         if (flat(k + m) /= 0) call unite(parent, k, k + m)
+         if (i < m) then
+            if (flat(k + m + 1) /= 0) call unite(parent, k, k + m + 1)
+         end if
+         if (i > 1) then
+            if (flat(k + m - 1) /= 0) call unite(parent, k, k + m - 1)
+         end if
+      end if
+   end do
+   ncomp = 0
+   do k = 1, nc
+      if (flat(k) == 0) cycle
+      call find(parent, k, i)
+      if (i == k) ncomp = ncomp + 1
    end do
 
-   lab = labeling(ai)
-   call expect('checkerboard count', count(lab > 0) == n*n/2 .and. maxval(lab) == n*n/2, nfail)
-   call expect('checkerboard isolated', all((lab > 0) .eqv. (ai /= 0)), nfail)
-   print '(a)', 'checkerboard labeled:'
-   call print(lab)
+   nlab = 0
+   if (maxval(lab) == ncomp) then
+      allocate(seen(0:ncomp))
+      seen = .false.
+      seen(pack(lab, mi /= 0)) = .true.
+      nlab = count(seen(1:ncomp))
+   end if
+   call expect('one label per component', nlab == ncomp, nfail)
 
-   ! full foreground: one single component
-   ai = 1
-   lab = labeling(ai)
-   call expect('full foreground single label', all(lab == 1), nfail)
-
-   ai = 0
-   lab = labeling(ai)
-   call expect('empty labeling', all(lab == 0), nfail)
-
+   print '(a,i0)', 'labels: ', ncomp
    if (nfail > 0) then
       print *, 'FAILED checks:', nfail
       error stop 1
@@ -72,5 +83,25 @@ contains
          nfail = nfail + 1
       end if
    end subroutine expect
+
+   subroutine find(parent, x, root)
+      integer, intent(inout) :: parent(:)
+      integer, intent(in) :: x
+      integer, intent(out) :: root
+      root = x
+      do while (parent(root) /= root)
+         parent(root) = parent(parent(root))
+         root = parent(root)
+      end do
+   end subroutine find
+
+   subroutine unite(parent, a, b)
+      integer, intent(inout) :: parent(:)
+      integer, intent(in) :: a, b
+      integer :: ra, rb
+      call find(parent, a, ra)
+      call find(parent, b, rb)
+      if (ra /= rb) parent(max(ra, rb)) = min(ra, rb)
+   end subroutine unite
 
 end program test_label

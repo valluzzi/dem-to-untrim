@@ -49,7 +49,7 @@ contains
       integer, intent(out) :: ncols, nrows
       real(rp), intent(out) :: nodata
       character(len=64) :: key, val
-      integer :: i, ts
+      integer :: pos, ts
       real(rp) :: x
       logical :: ok
 
@@ -57,9 +57,18 @@ contains
       ncols = 0
       nrows = 0
       nodata = -9999.0_rp
-      do i = 1, 6
+      do
+         pos = r%p
          call get_token(r, key, ts)
-         if (ts == 0) call get_token(r, val, ts)
+         if (ts /= 0) then
+            print *, 'readAsc: unexpected end of header in ', trim(filename)
+            return
+         end if
+         if (.not. is_header_key(key)) then
+            r%p = pos
+            exit
+         end if
+         call get_token(r, val, ts)
          if (ts /= 0) then
             print *, 'readAsc: unexpected end of header in ', trim(filename)
             return
@@ -91,6 +100,17 @@ contains
       st = 0
 
    end function read_header
+
+   logical function is_header_key(key)
+      character(len=*), intent(in) :: key
+      select case (trim(key))
+      case ('ncols', 'nrows', 'xllcorner', 'xllcenter', 'yllcorner', 'yllcenter', &
+            'cellsize', 'dx', 'dy', 'NODATA_value', 'nodata_value')
+         is_header_key = .true.
+      case default
+         is_header_key = .false.
+      end select
+   end function is_header_key
 
    integer function read_row(r, filename, vals) result(st)
       type(reader), intent(inout) :: r

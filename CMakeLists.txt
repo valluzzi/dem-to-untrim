@@ -56,7 +56,7 @@ add_test(NAME test_numpy
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
-add_executable(test_label tests/test_label.f90 src/module_label.f90 src/module_print.f90)
+add_executable(test_label tests/test_label.f90 src/module_label.f90 src/module_asc.f90 src/module_print.f90)
 set_target_properties(test_label PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
