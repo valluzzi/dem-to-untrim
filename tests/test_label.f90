@@ -1,5 +1,6 @@
 program test_label
    use label
+   use module_print
    implicit none
    integer, parameter :: n = 10
    integer :: i, j, nfail
@@ -29,7 +30,8 @@ program test_label
 
    lab = labeling(ar)
    call expect('real8 stripes', all(lab == expected), nfail)
-   call print_matrix('stripes labeled:', lab)
+   print '(a)', 'stripes labeled:'
+   call print(lab)
 
    ! checkerboard: no two foreground cells are 4-adjacent
    do j = 1, n
@@ -41,7 +43,8 @@ program test_label
    lab = labeling(ai)
    call expect('checkerboard count', count(lab > 0) == n*n/2 .and. maxval(lab) == n*n/2, nfail)
    call expect('checkerboard isolated', all((lab > 0) .eqv. (ai /= 0)), nfail)
-   call print_matrix('checkerboard labeled:', lab)
+   print '(a)', 'checkerboard labeled:'
+   call print(lab)
 
    ! full foreground: one single component
    ai = 1
@@ -59,16 +62,6 @@ program test_label
    print *, 'PASS'
 
 contains
-
-   subroutine print_matrix(title, lab)
-      character(len=*), intent(in) :: title
-      integer(4), intent(in) :: lab(:,:)
-      integer :: r
-      print '(a)', title
-      do r = 1, size(lab, 1)
-         write(*,'(10i4)') lab(r,:)
-      end do
-   end subroutine print_matrix
 
    subroutine expect(label_text, ok, nfail)
       character(len=*), intent(in) :: label_text
