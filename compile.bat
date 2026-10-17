@@ -10,7 +10,7 @@ echo ========================================
 echo.
 
 REM Check if CMake is installed
-where cmake >nul
+where cmake >nul 2>&1
 if !errorlevel! neq 0 (
     echo ERROR: CMake is not installed or not in PATH
     echo Please install CMake from https://cmake.org/download/
@@ -19,13 +19,34 @@ if !errorlevel! neq 0 (
 
 REM Detect and setup Intel Fortran
 echo Checking for Fortran compiler...
-where ifort >nul
+
+REM ifort on Windows needs the MSVC linker and rc from VS Build Tools, so load them before oneAPI
+if exist "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" (
+    call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+)
+
+REM Load the Intel oneAPI environment so ifort is on PATH if installed
+if exist "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" (
+    echo Initializing Intel oneAPI environment...
+    call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" >nul 2>&1
+) else if exist "C:\Program Files\Intel\oneAPI\setvars.bat" (
+    echo Initializing Intel oneAPI environment...
+    call "C:\Program Files\Intel\oneAPI\setvars.bat" >nul 2>&1
+)
+
+REM Fallback in case setvars did not put ifort on PATH
+where ifort >nul 2>&1
+if !errorlevel! neq 0 if exist "C:\Program Files (x86)\Intel\oneAPI\compiler\latest\bin\ifort.exe" (
+    set "PATH=C:\Program Files (x86)\Intel\oneAPI\compiler\latest\bin;!PATH!"
+)
+
+where ifort >nul 2>&1
 if !errorlevel! equ 0 (
     echo - Intel Fortran Compiler ^(ifort^) found
     goto setup_intel
 )
 
-where gfortran >nul
+where gfortran >nul 2>&1
 if !errorlevel! equ 0 (
     echo - GNU Fortran Compiler ^(gfortran^) found
     goto setup_mingw
@@ -41,17 +62,20 @@ echo After installation, add the compiler bin directory to your PATH and run thi
 exit /b 1
 
 :setup_intel
-REM Setup Intel oneAPI environment
-if exist "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" (
-    echo Initializing Intel oneAPI environment...
-    call "C:\Program Files (x86)\Intel\oneAPI\setvars.bat" >nul 2>&1
-) else if exist "C:\Program Files\Intel\oneAPI\setvars.bat" (
-    echo Initializing Intel oneAPI environment...
-    call "C:\Program Files\Intel\oneAPI\setvars.bat" >nul 2>&1
+REM Ninja bundled with VS Build Tools, the generator that works with ifort
+if exist "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe" (
+    set "PATH=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;!PATH!"
 )
+REM CMake only identifies the Intel compiler when its test source is preprocessed
+set "FC_FLAGS=/fpp"
+for /f "delims=" %%i in ('where ifort') do set "FC_PATH=%%i"
+set "FC_PATH=!FC_PATH:\=/!"
 goto configure
 
 :setup_mingw
+set "FC_FLAGS="
+for /f "delims=" %%i in ('where gfortran') do set "FC_PATH=%%i"
+set "FC_PATH=!FC_PATH:\=/!"
 echo MinGW/Gfortran found, proceeding with build...
 goto configure
 
@@ -71,34 +95,16 @@ echo.
 echo Configuring project with CMake...
 echo.
 
-REM For Intel Fortran, explicitly set the compiler
-cmake .. -DCMAKE_Fortran_COMPILER=ifort -G "Ninja" -DCMAKE_BUILD_TYPE=Release 2>nul
-if !errorlevel! equ 0 (
-    echo Configured with Ninja generator
-    goto build
+REM Use Ninja when installed, otherwise NMake (the VS generator needs devenv, which Build Tools lacks)
+set "GEN=NMake Makefiles"
+where ninja >nul 2>&1 && set "GEN=Ninja"
+cmake .. -G "!GEN!" -DCMAKE_Fortran_COMPILER="%FC_PATH%" -DCMAKE_Fortran_FLAGS="%FC_FLAGS%" -DCMAKE_BUILD_TYPE=Release
+if !errorlevel! neq 0 (
+    echo ERROR: CMake configuration failed
+    cd ..
+    exit /b 1
 )
-
-cmake .. -DCMAKE_Fortran_COMPILER=ifort -DCMAKE_BUILD_TYPE=Release 2>nul
-if !errorlevel! equ 0 (
-    echo Configured with default generator
-    goto build
-)
-
-cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release 2>nul
-if !errorlevel! equ 0 (
-    echo Configured with Ninja generator
-    goto build
-)
-
-cmake .. -DCMAKE_BUILD_TYPE=Release 2>nul
-if !errorlevel! equ 0 (
-    echo Configured with default generator
-    goto build
-)
-
-echo ERROR: CMake configuration failed
-cd ..
-exit /b 1
+echo Configured with !GEN! generator
 
 :build
 REM Build the project

@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(DEM_to_UnTRIM Fortran)
 
-# Set Fortran standard and compiler flags
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
-
 # Compiler-specific flags
 if(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
     # For Intel Fortran Compiler
@@ -15,9 +12,6 @@ else()
     # For GCC/Gfortran
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O2")
 endif()
-
-# Ensure modules directory exists
-file(MAKE_DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY})
 
 # Add the main executable
 add_executable(DEM_to_UnTRIM src/DEM_to_UnTRIM.f90)
@@ -75,3 +69,10 @@ add_test(NAME test_print
     COMMAND test_print
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
+
+# Separate module dirs: several targets compile the same module sources
+foreach(target DEM_to_UnTRIM test_asc test_numpy test_label test_print)
+    set_target_properties(${target} PROPERTIES
+        Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules/${target}
+    )
+endforeach()
