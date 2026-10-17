@@ -2,3 +2,4 @@ build/
 *.asc
 *.tif
 *.grd
+*.prj

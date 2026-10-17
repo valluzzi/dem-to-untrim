@@ -13,7 +13,7 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES "MSVC")
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} /O2 /W3")
 else()
     # For GCC/Gfortran
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O2 -Wall -Wextra")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O2")
 endif()
 
 # Ensure modules directory exists
@@ -32,3 +32,26 @@ set_target_properties(DEM_to_UnTRIM PROPERTIES
 
 # Installation target (optional)
 install(TARGETS DEM_to_UnTRIM DESTINATION bin)
+
+# Tests
+enable_testing()
+
+add_executable(test_asc tests/test_asc.f90 src/module_asc.f90)
+set_target_properties(test_asc PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME test_asc
+    COMMAND test_asc
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_executable(test_numpy tests/test_numpy.f90 src/module_numpy.f90)
+set_target_properties(test_numpy PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+)
+
+add_test(NAME test_numpy
+    COMMAND test_numpy
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)

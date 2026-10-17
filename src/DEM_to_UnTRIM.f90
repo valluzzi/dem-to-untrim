@@ -7,17 +7,18 @@ MODULE tinclude2
    LOGICAL, ALLOCATABLE :: rb(:), liw(:,:)
    CHARACTER(len=80) :: DEM, grid_file, location
    INTEGER :: ibc(maxbc), jbc(maxbc), ne, nbc, imx, jmx, nsi, nsf, ihla, nv, ns, imax, jmax      &
-             , cuntam, nlk, np, nr, bcE, BCW, bcN, bcS, imxg, jmxg, pixel1, xllcorner, yllcorner
+             , cuntam, nlk, np, nr, bcE, BCW, bcN, bcS, imxg, jmxg, pixel1
+   REAL :: xllcorner, yllcorner
    REAL :: dx(2), angle, hland, scale, delx, dely, latitude, apix
    REAL :: xmin, xmax, ymin, ymax
    REAL, ALLOCATABLE :: xy(:,:), xc(:,:), l12(:), h12(:), cq(:)
-   INTEGER, ALLOCATABLE, DIMENSION (:) :: jk4, k4, k5, i4, i5, j4, j5, i7, kss, nns
+   INTEGER, ALLOCATABLE, DIMENSION (:) :: i4, i5, j4, j5
 
-   INTEGER, ALLOCATABLE, DIMENSION (:) :: ihw, ihu, jb, jt            , l4, l5, nls
+   INTEGER, ALLOCATABLE, DIMENSION (:) :: jb, jt            , l4, l5, nls
 
    INTEGER, ALLOCATABLE, DIMENSION (:,:) :: iw, iri, wik(:,:,:), nen, is, je
    INTEGER, ALLOCATABLE, DIMENSION (:,:) :: ib, it, il, p, q, iwh, juh
-   REAL, ALLOCATABLE :: sxy(:,:), xysb(:,:), xyst(:,:), aai(:), hwi(:), dyj(:), huj(:)
+   REAL, ALLOCATABLE :: aai(:), hwi(:), dyj(:), huj(:)
 
    INTEGER :: im, jm, iar=6000, ibr=5000          , tnl, nlkpicc=3872, nlkgra=139035
 
@@ -898,70 +899,26 @@ END SUBROUTINE sconta
 SUBROUTINE riduci_grd
    USE tinclude2                                    !    Global variables
    IMPLICIT none
-   REAL :: hhww(np), x0, y0, xye(2,4,nl), xm, ym
-   INTEGER :: io, i, j, ii, k, l, n, m, i1, i2, jj, nn, t
-   INTEGER :: tne, tns, tnv, tnss, tnp, nis(ne), njs(nsf)
+   REAL :: xm, ym
+   INTEGER :: io, i, j, k, l, n, m, i1, i2, jj, t
+   INTEGER :: tne, tns, nis(ne), njs(nsf)
 
    tne = COUNT(iwh>ihla)
    tns = COUNT(juh>ihla)
-   tnp = tne
-   tnv = 4*tnp
-   ALLOCATE (k4(ne),k5(ne),i4(ne),i5(ne),j4(nsf),j5(nsf),i7(tne),nns(nsf),kss(tne),ihw(tne))
-   ALLOCATE (jk4(nsf),huj(tns),dyj(tns),hwi(tne),aai(tne),ihu(tns),xysb(2,tns),xyst(2,tns))
-   ALLOCATE (sxy(2,tnv))
-
-      n = 0           ! coordinate di cell_pixel>hland
-      kss = 4
-      k4(1) = 1
-      DO i=1,ne
-         x0=xy(1,nen(4,i))
-         y0=xy(2,nen(4,i))
-         m=0
-         DO j=0,nl-1
-            xye(2,1:2,:) = y0+(j  )*dely
-            xye(2,3:4,:) = y0+(j+1)*dely
-            xye(1,1  ,:) = x0+(/(k,k=0,nl-1)/)*delx
-            xye(1,4  ,:) = x0+(/(k,k=0,nl-1)/)*delx
-            xye(1,2  ,:) = x0+(/(k,k=1,nl  )/)*delx
-            xye(1,3  ,:) = x0+(/(k,k=1,nl  )/)*delx
-            DO k=0,nl-1
-               IF(iwh(j*nl+k+1,i)<=ihla)CYCLE
-               n = n+1
-               m = m+1
-               ihw(n) = m
-               sxy(:,4*(n-1)+1:4*n) = xye(:,:,k+1)
-            END DO
-         END DO
-         k5(i) = n
-         IF(i<ne)k4(i+1) = k5(i)+1
-      END DO
-
-      tnp = n
-      tnv = tnp*4
-      FORALL(i=1:tnp)i7(i) = 1+4*(i-1)
+   ALLOCATE (i4(ne),i5(ne),j4(nsf),j5(nsf))
+   ALLOCATE (huj(tns),dyj(tns),hwi(tne),aai(tne))
 
       n = 0                !      riduce la cella
       i4(1) = 1
       DO i=1,ne
-         m = 0
-         DO j=0,nl-1
-            DO k=0,nl-1
-               IF(iwh(j*nl+k+1,i)<=ihla)CYCLE
-               m = m+1
-               hhww(m) = iwh(j*nl+k+1,i)*scale
-            END DO
-         END DO
-         nn = 0
          DO j=0,nl-1
             DO k=0,nl-1
                IF(iwh(j*nl+k+1,i)<=ihla)CYCLE
                m = COUNT(iwh(:,i)==iwh(j*nl+k+1,i))
                n  = n+1
-               nn  = nn+1
                aai(n) = apix*m
                hwi (n) = iwh(j*nl+k+1,i)*scale
                WHERE(iwh(:,i)*scale==hwi(n)) iwh(:,i) = ihla
-               WHERE(hhww(1:k5(i)-k4(i)+1)==hwi(n)) ihw(k4(i):k5(i)) = nn
             END DO
          END DO
          i5(i) = n
@@ -969,41 +926,16 @@ SUBROUTINE riduci_grd
       END DO
       tne = n
 
-      n = 0           ! coordinate di edge_pixel>hland
-      jk4(1) = 1
-      DO j=1,nsf
-         m = 0
-         nns(j) = COUNT(juh(:,j)>ihla)
-         DO k=1,nl
-            IF(juh(k,j)<=ihla)CYCLE
-            n = n+1
-            m = m+1
-            ihu(n) = m
-            xysb(1:2,n) = xy(:,jb(j))+(k-1)*(xy(:,jt(j))-xy(:,jb(j)))/nl
-            xyst(1:2,n) = xy(:,jb(j))+ k   *(xy(:,jt(j))-xy(:,jb(j)))/nl
-         END DO
-         IF(j<nsf)jk4(j+1) = jk4(j)+nns(j)
-      END DO
-
       n = 0                !      riduce i lati
       j4(1) = 1
       DO j=1,nsf
-         nn = 0
-         DO k=1,nl
-            IF(juh(k,j)<=ihla)CYCLE
-            nn = nn+1
-            hhww(nn) = juh(k,j)*scale
-         END DO
-         nn = 0
          DO k=1,nl
             IF(juh(k,j)<=ihla)CYCLE
             i = COUNT(juh(:,j)==juh(k,j))
             n=n+1
-            nn=nn+1
             dyj(n) = i*MERGE(delx,dely,xy(2,jb(j))==xy(2,jt(j)))
             huj (n) = juh(k,j)*scale
             WHERE(juh(:,j)*scale==huj(n)) juh(:,j) = ihla
-            WHERE(hhww(1:nns(j))==huj(n)) ihu(jk4(j):jk4(j)+nns(j)-1) = nn
          END DO
          j5(j) = n
          IF(j<nsf)j4(j+1) = j5(j)+1
@@ -1013,6 +945,7 @@ SUBROUTINE riduci_grd
 CONTAINS
 SUBROUTINE scrivi
    IMPLICIT none
+   NAMELIST /grd_2008/ nv, ne, nr, ns, nsi, nbc, nsf, tne, tns, angle, location
    ALLOCATE (xc(2,ne))
    DO i=1,ne
 	  xc(1,i)=0.5*(xy(1,nen(1,i))+xy(1,nen(4,i)))
@@ -1031,7 +964,6 @@ SUBROUTINE scrivi
    OPEN(grd,File=grid_file)
 !                                                             Parts a-b
    location=CHAR(39)//TRIM(location)//CHAR(39)
-   NAMELIST /grd_2008/ nv, ne, nr, ns, nsi, nbc, nsf, tne, tns, angle, location
    WRITE(grd,NML=grd_2008)
    DO i=1,nv
       WRITE(grd,'(I10,1X,2G20.12)') i, xy(:,i)  ! vertex co-ordinates of the computational grid
@@ -1066,42 +998,8 @@ SUBROUTINE scrivi
 !                                                             Part c
    PRINT *,'Nof subpolygons, subedges, sublinks =',tne, tns, tnl
    CALL crono
-   PRINT *,'Dfrisc, stocascrev UnTRIM.grd-4-plt !'
-   k5  = k5-k4+1
-   tnp = SUM(k5(1:ne ))    ! total number of sub-polygons for postprocessing use (tnp>=tne)
-   tnv = SUM(kss(1:tnp))   ! total number of vertices stored for postprocessing use (tnv>>nv)
-   tnss = SUM(nns(1:nsf )) ! total number of sub-edges for postprocessing use (tnss>=tns)
-   WRITE(*,'(a23,3i15)')'tne, tnss, tnv-4-plt =',tnp,tnss,tnv
-   ! CALL compatta
-   ! grid_file = TRIM(grid_file)//'-4-plt'
-   ! OPEN(grd,file=grid_file,FORM='unformatted')
-   ! WRITE(grd)tnp, tnv, tnss
-   ! WRITE(grd)k5(1:ne), nns(1:nsf), kss(1:tnp), ihu(1:tnss), ihw(1:tnp)
-   ! WRITE(grd)sxy(:,1:tnv), xysb(:,1:tnss), xyst(:,1:tnss)
-   ! CLOSE(grd)
-   DEALLOCATE(sxy,xysb,xyst,ihu,ihw,k5,nns,kss)
-   CALL crono
    WRITE(*,*)'Done!'
 END SUBROUTINE scrivi
-
-SUBROUTINE compatta
-   REAL, DIMENSION(2,4) :: temp
-!$OMP PARALLEL DO PRIVATE(ii,j,temp) SCHEDULE(RUNTIME)
-   DO i=1,ne                                ! compatta sub-polygons
-	  DO ii=1,k5(i)-1
-         IF(ihw(k4(i)+ii)==ihw(k4(i)+ii-1))CYCLE
-         DO j=ii+1,k5(i)-1
-            IF(ihw(k4(i)+j)/=ihw(k4(i)+ii-1))CYCLE
-            ihw(k4(i)+j ) = ihw(k4(i)+ii  )
-            ihw(k4(i)+ii) = ihw(k4(i)+ii-1)
-            temp = sxy(:,i7(k4(i)+ii):i7(k4(i)+ii)+3)
-            sxy(:,i7(k4(i)+ii):i7(k4(i)+ii)+3) = sxy(:,i7(k4(i)+j):i7(k4(i)+j)+3)
-            sxy(:,i7(k4(i)+j):i7(k4(i)+j)+3) = temp
-            EXIT
-         END DO
-	  END DO
-   END DO
-END SUBROUTINE compatta
 
 END SUBROUTINE riduci_grd
 

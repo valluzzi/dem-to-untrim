@@ -39,7 +39,7 @@ fi
 echo ""
 echo "Configuring project with CMake..."
 cmake -S . -B build \
-    "${GENERATOR_ARGS[@]}" \
+    ${GENERATOR_ARGS[@]+"${GENERATOR_ARGS[@]}"} \
     -DCMAKE_Fortran_COMPILER="$FC_COMPILER" \
     -DCMAKE_BUILD_TYPE=Release
 
